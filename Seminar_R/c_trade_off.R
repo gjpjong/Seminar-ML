@@ -1,4 +1,4 @@
-#### Imbalance fairness trade-off: different lambda's ####
+#### Imbalance accuracy trade-off for different lambda's ####
 
 lambda_vals <- c(3, 5, 8)
 all_models_eval_train <- list()
