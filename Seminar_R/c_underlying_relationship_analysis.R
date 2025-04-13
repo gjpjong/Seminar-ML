@@ -144,20 +144,18 @@ coef_nonwhite <- compile_coefs(Y="nonWhite", reg_fn=glm_logit)
 coef_recid <- compile_coefs(Y = "is_recid", reg_fn = glm_logit)
 
 
-## Plot features (can be altered to plot any chunk of the data, but swapping the "grepped" items)
+## Plot features
 all_features <- rbind(
   coef_age[, .SD, .SDcols = names(coef_age)],
   coef_nonmale[, .SD, .SDcols = names(coef_nonmale)],
   coef_nonwhite[, .SD, .SDcols = names(coef_nonwhite)]
 )
 
-
 all_features$dep_var = factor(all_features$dep_var, levels=c("age","nonMale", "nonWhite"))
 levels(all_features$dep_var) <- c("age","Non-Male","Non-White")
 
 ## Add this line to make the plot 
 all_features <- all_features %>% rename(pval_sign = `p-val<0.05`)
-
 
 features_Y <- coef_recid[, .SD, .SDcols = names(coef_recid)]
 features_Y$dep_var = factor(features_Y$dep_var, levels = "is_recid")
@@ -187,7 +185,6 @@ all_features <- merge(all_features, feature_labels, by = "rn", all.x = TRUE)
 
 features_Y <- merge(features_Y, feature_labels, by = "rn", all.x = TRUE)
 
-# changed p-val<0.05 column name
 p_features=ggbarplot(all_features, 
                      x="label", y="Estimate", 
                      color="pval_sign", 
@@ -240,7 +237,6 @@ all_features_nocharge <- all_features_nocharge[rn %in% c("juv_fel_count", "decil
 all_features_nocharge$dep_var = factor(all_features_nocharge$dep_var, levels=c("age","nonMale", "nonWhite"))
 levels(all_features_nocharge$dep_var) <- c("age","Non-Male","Non-White")
 
-## Add this line to make the plot 
 all_features_nocharge <- all_features_nocharge %>% rename(pval_sign = `p-val<0.05`)
 
 features_Y_nocharge <- coef_recid[, .SD, .SDcols = names(coef_recid)]
@@ -264,7 +260,6 @@ all_features_nocharge <- merge(all_features_nocharge, feature_labels_nocharge, b
 
 features_Y_nocharge = merge(features_Y_nocharge, feature_labels_nocharge, by = "rn", all.x = TRUE)
 
-# changed p-val<0.05 column name
 p_features_nocharge=ggbarplot(all_features_nocharge, 
                               x="label", y="Estimate", 
                               color="darkturquoise", 
