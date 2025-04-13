@@ -5,29 +5,24 @@
 Xgboost_imbalance_penalty <- function(X_train, Y_train, Z_train, X_test,
                                       lambda_pen = 10, nrounds = 100,
                                       params = list(eval_metric = "rmse")) {
-  # Convert training and test predictors to matrices.
+  
   X_train <- as.matrix(X_train)
   X_test  <- as.matrix(X_test)
-  
-  # Compute a composite summary for the protected attribute(s) from Z_train.
   z_train <- rowMeans(as.matrix(Z_train))
-  
-  # Compute the overall (global) mean of the protected attribute summary.
   global_z <- mean(z_train)
   
-  # Create an XGBoost DMatrix from the training data and attach the protected summary as an attribute.
   dtrain <- xgb.DMatrix(data = X_train, label = Y_train)
   attr(dtrain, "z") <- z_train  # Attach z_train as an attribute.
   
-  # Define a custom objective function using logistic loss (binary cross-entropy)
-  # and a continuous penalty term proportional to (z - global_z).
+  # Define a custom objective function 
   custom_obj <- function(preds, dtrain) {
-    # Retrieve true labels and protected attribute summary for this batch.
     y <- getinfo(dtrain, "label")
     z <- attr(dtrain, "z")
     
     # Compute probabilities using the logistic function.
     p <- 1 / (1 + exp(-preds))
+
+    # Use the Euclidean distance to get delta
     delta <- (z - global_z)^2
     
     # Compute gradient and hessian for logistic loss.
@@ -37,17 +32,15 @@ Xgboost_imbalance_penalty <- function(X_train, Y_train, Z_train, X_test,
     return(list(grad = grad, hess = hess))
   }
   
-  # Train the XGBoost model (booster) using the custom objective.
+  # Train the XGBoost model using the custom objective.
   booster <- xgb.train(
     params  = params,
     data    = dtrain,
     nrounds = nrounds,
     obj     = custom_obj,
     verbose = 0
-    # Consider adding watchlist and early_stopping_rounds for hyperparameter tuning.
   )
   
-  # Create a DMatrix for the test data.
   dtest <- xgb.DMatrix(data = X_test)
   
   # Get raw predictions on the test set.
