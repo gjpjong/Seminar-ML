@@ -1,8 +1,9 @@
 ################ Setup ###########################
 
 # # -- How in install BEAT
-devtools::install_version("RcppEigen", "0.3.3.7.0") ## beat does not work with newer RcppEigen
-devtools::install_github("ayeletis/beat")  ## do not update the RcppEigen if prompted
+#devtools::install_version("RcppEigen", "0.3.3.7.0") ## beat does not work with newer RcppEigen
+#devtools::install_version("RcppArmadillo", "0.11.4.0.1") ## beat does not work with newer RcppArmadillo
+#devtools::install_github("ayeletis/beat")  ## do not update the RcppEigen if prompted
 # # --
 
 
@@ -21,17 +22,19 @@ library(doParallel)
 library(xgboost)
 library(pROC)
 library(ggplot2)
-library(glmnet)  # for regularized logistic regression
+library(glmnet)  
 library(readxl)
 library(pROC)
 library(caret)
 library(ggrepel)
 
-# Use forward slashes for file paths
+# Get data from kaggle page 
+# https://www.kaggle.com/datasets/danofer/compass/data
 excel_file <- "C:/Users/gebruiker/Documents/BEAT/cox-violent-parsed.xlsx"
 df <- read_excel(excel_file)
 
-dir <- "C:/Users/gebruiker/Documents/BEAT"
+# Change directory to where you saved this GitHub map 
+dir <- "C:/Users/gebruiker/Documents/Seminar_R"
 setwd(dir)
 
 # Choose a random seed
@@ -61,7 +64,7 @@ columns_to_keep <- c(
 # Keep only needed columns
 usefullData <- df[, columns_to_keep]
 
-# Remove rows where 'is_recid' is unavailable (marked by -1)
+# Remove rows where 'is_recid' is unavailable
 usefullData <- subset(usefullData, is_recid != -1)
 
 data <- dummy_cols(
@@ -141,7 +144,7 @@ my_penalty <- 5
 nrounds <- 200
 
 
-# (1) Regression_BEAT using balanced_regression_forest (uses target weights)
+# (1) Regression_BEAT using balanced_regression_forest
 fit_regression_beat <- balanced_regression_forest(
   X_train_noZ, Y_train,
   target.weights = as.matrix(Z_train),  # using all columns of Z_train as weights
@@ -173,9 +176,11 @@ train_data_log <- cbind(X_train_all, is_recid = Y_train)
 log_model <- glm(is_recid ~ ., data = train_data_log, family = binomial())
 
 ####### Underlying relationship analysis  #############
+## Creates the figures found in the Data section of the paper
 source("c_underlying_relationship_analysis.R")
 
 ######## Variable Importance per Model ########
+## Creates figure of the variable importance of the different models found in the Results section of the paper
 source("c_variable_importance.R")
 
 ###### In-Sample XGBoost with penalty  #######
@@ -247,43 +252,31 @@ Wmat_test <- Wmat_test / rowSums(Wmat_test)
 # Out-of-sample predictions
 rss_logistic_test <- predict(logistic_rss_model, newx = Wmat_test, type = "response", s = "lambda.min")
 
-
-###### Evaluate #####
+###### Evaluate ######
 regression_grf_noZ_test <- predict(fit_regression_grf_noZ, X_test_noZ)$predictions
 regression_grf_all_test <- predict(fit_regression_grf_all, X_test_all)$predictions
 regression_beat_test    <- predict(fit_regression_beat, X_test_noZ)$predictions
-regression_xgboost_test <- similarity_scores_test
-regression_xgboost_prob_test <- prob_predictions_test
 
+## Log model
+predicted_prob_log <- predict(log_model, newdata = X_test_all, type = "response")
 
-predicted_prob_full <- predict(log_model, newdata = X_test_all, type = "response")
-
-## Just set all NA's to 0
-predicted_prob_full_na <- predicted_prob_full
-predicted_prob_full_na[is.na(predicted_prob_full)] <- 0
+## Set all NA's to 0
+predicted_prob_full_na <- predicted_prob_log
+predicted_prob_full_na[is.na(predicted_prob_full_na)] <- 0
 predicted_class_full <- ifelse(predicted_prob_full_na > 0.5, 1, 0)
 
-## This is necessary to get delta policy 
+## Swap in order to get delta policy 
 Z_test_delta <- Z_test
 Z_test_delta <- as.data.frame(Z_test_delta)
 
-# 1. Identify all African-American individuals (will become Caucasian)
 aa_to_caucasian <- Z_test_delta$"race_African-American" == 1
-
-
-# 2. Perform the swap:
 # African-American → Caucasian
 Z_test_delta$"race_Caucasian"[aa_to_caucasian] <- 1
 Z_test_delta$"race_African-American"[aa_to_caucasian] <- 0
 
-# 3. Handle all other races (will become African-American)
 other_races <- !aa_to_caucasian
-
-# First reset all race columns for these individuals
 race_cols <- grep("^race_", names(Z_test_delta), value = TRUE)
 Z_test_delta[other_races, race_cols] <- 0
-
-# Then set just African-American to 1
 Z_test_delta$"race_African-American"[other_races] <- 1
 
 # Verify exactly one race is 1 for each individual
@@ -296,25 +289,19 @@ regression_grf_noZ_delta <- predict(fit_regression_grf_noZ, X_test_noZ)$predicti
 regression_grf_all_delta <- predict(fit_regression_grf_all, X_test_all_delta)$predictions
 regression_beat_delta    <- predict(fit_regression_beat, X_test_noZ)$predictions  
 
+# Swap in order to get delta policy
 Z_train_delta <- Z_train
 Z_train_delta <- as.data.frame(Z_train_delta)
 
-# 1. Identify all African-American individuals (will become Caucasian)
 aa_to_caucasian <- Z_train_delta$"race_African-American" == 1
 
-# 2. Perform the swap:
 # African-American → Caucasian
 Z_train_delta$"race_Caucasian"[aa_to_caucasian] <- 1
 Z_train_delta$"race_African-American"[aa_to_caucasian] <- 0
 
-# 3. Handle all other races (will become African-American)
 other_races <- !aa_to_caucasian
-
-# First reset all race columns for these individuals
 race_cols <- grep("^race_", names(Z_train_delta), value = TRUE)
 Z_train_delta[other_races, race_cols] <- 0
-
-# Then set just African-American to 1
 Z_train_delta$"race_African-American"[other_races] <- 1
 
 # Verify exactly one race is 1 for each individual
@@ -335,18 +322,17 @@ xgboost_delta <- Xgboost_imbalance_penalty(
 
 fit_xgboost_delta <- xgboost_delta$model
 
-similarity_scores_delta <- xgboost_delta$get_majority_vote_similarity()
 raw_preds_delta <- predict(fit_xgboost_delta, xgb.DMatrix(data = X_test_noZ))
 prob_predictions_delta <- 1 / (1 + exp(-raw_preds_test))
-predicted_prob_full_delta <- predict(log_model, newdata = X_test_all_delta, type = "response")
+
 rss_logistic_test_delta <- predict(logistic_rss_model, newx = Wmat_test, type = "response", s = "lambda.min")
 
 predicted_prob_full_delta <- predict(log_model, newdata = X_test_all_delta, type = "response")
 predicted_prob_full_na_delta <- predicted_prob_full_delta
-predicted_prob_full_na_delta[is.na(predicted_prob_full_delta)] <- 0
+predicted_prob_full_na_delta[is.na(predicted_prob_full_na_delta)] <- 0
 predicted_class_full_delta <- ifelse(predicted_prob_full_na_delta > 0.5, 1, 0)
 
-# ---- Collect Results with thresholds = 0.5  ----
+# ---- Collect Results with threshold = 0.5  ----
 results_df_test <- bind_rows(
   evaluate_rss_test(regression_beat_test, regression_beat_delta, Y_test, "BEAT", Z_test, 0.5),
   evaluate_rss_test(regression_grf_noZ_test, regression_grf_noZ_delta, Y_test, "GRF_noZ", Z_test, 0.5),
@@ -368,7 +354,7 @@ results_df_test_thresholds <- bind_rows(
   evaluate_rss_test_thresholds(predicted_prob_full_na, predicted_prob_full_na_delta, Y_test, "Logistic", Z_test)
 )
 
-## Save the best threshold 
+## Save the best threshold: best = highest accuracy
 best_thresholds_df <- results_df_test_thresholds %>%
   group_by(model) %>%
   slice_max(order_by = accuracy, n = 1, with_ties = FALSE) %>%
@@ -425,7 +411,8 @@ write.csv(test_preds_class_with_Z, "predictions_class.csv", row.names = FALSE)
 ###### Make density plots ######
 Z_test_plot <- as.data.frame(Z_test)
 
-i <- 5 # which column to use for Z? i is in 1,...,9
+## Choose which column to use for Z (in this case, column 5 = African_American)
+i <- 5 
 group_name <- names(Z_test_plot)[i]
 
 test_data <- data.frame(
@@ -439,6 +426,7 @@ test_data <- data.frame(
   Z = as.factor(Z_test_plot[[i]])
 )
 
+## Rename columns
 names(test_data)[names(test_data) == 'lambda.min'] <- "regression_log_beat"
 names(test_data)[names(test_data) == 'regression_log....predicted_prob_full_na'] <- "regression_log"
 
@@ -515,15 +503,11 @@ p7_reg <- ggdensity(
   title   = "Logistic"
 )
 
-
-# Arrange the plots into a grid
+# Collect all plots into one figure
 p_reg <- ggarrange(p1_reg, p2_reg, p3_reg, p4_reg, p5_reg, p6_reg, p7_reg, ncol = 4, nrow = 2)
-
-# Display the final plot
 print(p_reg)
 
 setwd(dir)
-
 ggsave("Figure_density_plots.jpg",p_reg, width = 16, height = 12)
 
 #################### ROC and AUC ####################
@@ -569,5 +553,6 @@ legend("bottomright", legend = c(
 dev.off()
 
 
-#### Imbalance fairness trade-off: different lambda's ####
+#### Imbalance accuracy trade-off: different lambda's ####
+## Make the figure that shows the trade-off betweeen accuracy and imbalance for different lambda values (3,5,8)
 source("c_trade_off.R")
