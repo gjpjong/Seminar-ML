@@ -3,7 +3,6 @@
 lambda_vals <- c(3, 5, 8)
 all_models_eval_train <- list()
 
-
 evaluate_at_threshold_train <- function(score_vec, Y_true, Z_input, model_name, threshold = 0.5) {
   pred <- ifelse(score_vec > threshold, 1, 0)
   acc <- mean(pred == Y_true)
@@ -111,7 +110,7 @@ trade_off <- ggplot(df_lambda_models, aes(x = imbalance, y = accuracy, color = g
     bg.color = "white",
     bg.r = 0.15
   ) +
-  # Labels for fixed models (e.g. GRF_all, GRF_noZ)
+  # Labels for fixed models (GRF_all, GRF_noZ, Logistic)
   geom_text_repel(
     data = df_lambda_models[is.na(df_lambda_models$lambda), ],
     aes(label = model),
