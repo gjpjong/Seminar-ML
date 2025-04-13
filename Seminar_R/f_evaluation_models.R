@@ -1,3 +1,5 @@
+## Containt two functions to evaluate the models: with a given threshold, and with different thresholds
+
 ##### Function to evaluate the models with a given threshold #####
 evaluate_rss_test <- function(rss_vec, rss_vec_delta, Y_true, model_label, Z_test, threshold) {
   n <- length(Y_true)
@@ -24,11 +26,11 @@ evaluate_rss_test <- function(rss_vec, rss_vec_delta, Y_true, model_label, Z_tes
   fp_pct    <- 100 * FP / n
   fn_pct    <- 100 * FN / n
   
-  # Imbalance calc
+  # Imbalance 
   aux <- if (sum(pred == 1) > 0) colMeans(scaled_Z_test[pred == 1, , drop = FALSE]) else rep(0, ncol(scaled_Z_test))
   imbalance <- round(sum((aux - aux_avg_test)^2), 3)
   
-  # Delta policy change rate
+  # Delta policy 
   delta_changes <- round(mean(pred != pred_delta) * 100, 1)
   
   # Output
@@ -68,11 +70,11 @@ evaluate_rss_test_thresholds <- function(rss_vec, rss_vec_delta, Y_true, model_l
     fp_pct    <- 100 * FP / n
     fn_pct    <- 100 * FN / n
     
-    # Imbalance calc
+    # Imbalance
     aux <- if (sum(pred == 1) > 0) colMeans(scaled_Z_test[pred == 1, , drop = FALSE]) else rep(0, ncol(scaled_Z_test))
     imbalance <- round(sum((aux - aux_avg_test)^2), 3)
     
-    # Delta policy change rate
+    # Delta policy
     delta_changes <- round(mean(pred != pred_delta) * 100, 1)
     
     data.frame(
