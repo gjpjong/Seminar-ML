@@ -1,3 +1,4 @@
+## This code creates all figures and results until post-processing
 ################ Setup ###########################
 
 # # -- How in install BEAT
