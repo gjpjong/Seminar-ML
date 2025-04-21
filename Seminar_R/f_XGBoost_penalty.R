@@ -5,29 +5,38 @@
 Xgboost_imbalance_penalty <- function(X_train, Y_train, Z_train, X_test,
                                       lambda_pen = 10, nrounds = 100,
                                       params = list(eval_metric = "rmse")) {
-  
+  # Convert training and test predictors to matrices.
   X_train <- as.matrix(X_train)
   X_test  <- as.matrix(X_test)
-  z_train <- rowMeans(as.matrix(Z_train))
-  global_z <- mean(z_train)
   
+  # Compute a composite summary for the protected attribute(s) from Z_train.
+  z_train <- rowMeans(as.matrix(Z_train))  # or replace with direct factor if binary
+  
+  # Create an XGBoost DMatrix from the training data and attach the protected summary.
   dtrain <- xgb.DMatrix(data = X_train, label = Y_train)
   attr(dtrain, "z") <- z_train  # Attach z_train as an attribute.
   
-  # Define a custom objective function 
+  # Define a custom objective function using logistic loss and a continuous penalty term.
   custom_obj <- function(preds, dtrain) {
+    # Retrieve true labels and protected attribute summary for this batch.
     y <- getinfo(dtrain, "label")
     z <- attr(dtrain, "z")
     
     # Compute probabilities using the logistic function.
     p <- 1 / (1 + exp(-preds))
-
-    # Use the Euclidean distance to get delta
-    delta <- (z - global_z)^2
     
-    # Compute gradient and hessian for logistic loss.
-    grad <- (p - y) + lambda_pen * delta * p * (1 - p)
-    hess <- p * (1 - p) + lambda_pen * delta * p * (1 - p) * (1 - 2 * p)
+    # Improved delta: difference between average predictions for the two groups.
+    zf <- factor(z)
+    if (nlevels(zf) == 2) {
+      grp_means <- tapply(p, zf, mean)
+      delta     <- abs(diff(unname(grp_means)))
+    } else {
+      delta <- 0  # fallback if not exactly two groups
+    }
+    
+    # Compute gradient and Hessian with exponential penalty form.
+    grad <- (p - y) + lambda_pen * delta * (1 - 2*y) * exp((1 - 2*y) * preds)
+    hess <- p * (1 - p) + lambda_pen * delta * exp((1 - 2*y) * preds)
     
     return(list(grad = grad, hess = hess))
   }
@@ -41,6 +50,8 @@ Xgboost_imbalance_penalty <- function(X_train, Y_train, Z_train, X_test,
     verbose = 0
   )
   
+  
+  # Create a DMatrix for the test data.
   dtest <- xgb.DMatrix(data = X_test)
   
   # Get raw predictions on the test set.
