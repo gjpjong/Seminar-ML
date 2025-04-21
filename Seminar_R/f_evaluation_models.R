@@ -26,19 +26,25 @@ evaluate_rss_test <- function(rss_vec, rss_vec_delta, Y_true, model_label, Z_tes
   fp_pct    <- 100 * FP / n
   fn_pct    <- 100 * FN / n
   
-  # Imbalance 
+  recall    <- if ((TP + FN) == 0) NA else TP / (TP + FN)
+  f1_score <- if (is.na(precision) | is.na(recall) | (precision + recall) == 0) NA else {
+    2 * (precision * recall) / (precision + recall)
+  }
+  f1_score <- round(f1_score, 3)
+  
+  # Imbalance calc
   aux <- if (sum(pred == 1) > 0) colMeans(scaled_Z_test[pred == 1, , drop = FALSE]) else rep(0, ncol(scaled_Z_test))
   imbalance <- round(sum((aux - aux_avg_test)^2), 3)
   
-  # Delta policy 
+  # Delta policy change rate
   delta_changes <- round(mean(pred != pred_delta) * 100, 1)
   
   # Output
   data.frame(
     model     = model_label,
     threshold = threshold,
-    precision = precision,
     accuracy  = accuracy,
+    f1_score = f1_score,
     imbalance = imbalance,
     delta_policy = delta_changes
   )
@@ -70,18 +76,24 @@ evaluate_rss_test_thresholds <- function(rss_vec, rss_vec_delta, Y_true, model_l
     fp_pct    <- 100 * FP / n
     fn_pct    <- 100 * FN / n
     
-    # Imbalance
+    recall    <- if ((TP + FN) == 0) NA else TP / (TP + FN)
+    f1_score <- if (is.na(precision) | is.na(recall) | (precision + recall) == 0) NA else {
+      2 * (precision * recall) / (precision + recall)
+    }
+    f1_score <- round(f1_score, 3)
+    
+    # Imbalance calc
     aux <- if (sum(pred == 1) > 0) colMeans(scaled_Z_test[pred == 1, , drop = FALSE]) else rep(0, ncol(scaled_Z_test))
     imbalance <- round(sum((aux - aux_avg_test)^2), 3)
     
-    # Delta policy
+    # Delta policy change rate
     delta_changes <- round(mean(pred != pred_delta) * 100, 1)
     
     data.frame(
       model     = model_label,
       threshold = th,
-      precision = precision,
       accuracy  = accuracy,
+      f1_score = f1_score,
       imbalance = imbalance,
       delta_policy = delta_changes
     )
