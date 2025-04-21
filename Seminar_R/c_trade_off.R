@@ -39,7 +39,7 @@ for (lam in lambda_vals) {
   res_xgb <- Xgboost_imbalance_penalty(
     X_train = X_train_noZ,
     Y_train = Y_train,
-    Z_train = Z_train,
+    Z_train = unpriv,
     X_test  = X_train_noZ,
     lambda_pen = lam,
     nrounds = 200,
