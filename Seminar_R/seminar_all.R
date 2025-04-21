@@ -40,6 +40,7 @@ setwd(dir)
 
 # Choose a random seed
 my_seed = 42
+set.seed(my_seed)
 
 source("f_XGBoost_penalty.R")
 source("f_evaluation_models.R")
@@ -139,6 +140,18 @@ X_test_noZ  <- as.matrix(X_test)
 X_train_all <- cbind(X_train_noZ, Z_train)
 X_test_all  <- cbind(X_test_noZ,  Z_test)
 
+include_cols <- c(
+  "sex_Male",
+  "age_cat_Less than 25",
+  "race_African-American"
+)
+
+unpriv_train <- Z_train[, names(Z_train) %in% include_cols]
+
+unpriv <- unpriv_train
+
+unpriv_test <- Z_test[, names(Z_test) %in% include_cols]
+
 ####### Fit Regression Forests #######
 num_trees  <- 250  # adjust as needed
 my_penalty <- 5
@@ -163,7 +176,7 @@ fit_regression_grf_all <- regression_forest(X_train_all, Y_train, num.trees = nu
 fit_xgboost_penalty <- Xgboost_imbalance_penalty(
   X_train = X_train_noZ,
   Y_train = Y_train,
-  Z_train = Z_train,
+  Z_train = unpriv_train,
   X_test = X_test_noZ,
   lambda_pen = my_penalty,
   nrounds = num_trees,
@@ -314,7 +327,7 @@ X_train_all_delta <- cbind(X_train_noZ, Z_train_delta)
 xgboost_delta <- Xgboost_imbalance_penalty(
   X_train = X_train_noZ,
   Y_train = Y_train,
-  Z_train = Z_train_delta,
+  Z_train = unpriv,
   X_test = X_test_noZ,
   lambda_pen = my_penalty,
   nrounds = num_trees,
@@ -473,6 +486,15 @@ p4_reg <- ggdensity(
   add     = "mean",
   title   = "GRF_all"
 )
+
+p_reg <- ggarrange(p1_reg, p2_reg, p3_reg, p4_reg, ncol = 4)
+
+# Display the first plot
+print(p_reg)
+
+setwd(dir)
+
+ggsave("Figure_density_plots.jpg",p_reg, width = 16, height = 6)
 
 p5_reg <- ggdensity(
   data    = dat.plot,
